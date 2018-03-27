@@ -5,6 +5,7 @@ import org.hibernate.annotations.FetchMode;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.Date;
 
 @Entity
 @Table(name = "t_fs_file_info")
@@ -18,13 +19,22 @@ public class FileInfo implements Serializable {
     @Column(name = "full_path")
     private String fullPath;
     @Column(name = "file_length")
-    private int fileLength;
+    private long fileLength;
     @Column(name = "md5")
     private String md5;
+    @Column(name = "insert_time")
+    private Date insertTime;
+    @Column(name = "status")
+    private String status;
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id", referencedColumnName = "id")
     @Fetch(value = FetchMode.SELECT)
     private FileCategory category;
+
+    @PrePersist
+    protected void prePersist() {
+        insertTime = new Date();
+    }
 
     public long getId() {
         return id;
@@ -50,11 +60,11 @@ public class FileInfo implements Serializable {
         this.fullPath = fullPath;
     }
 
-    public int getFileLength() {
+    public long getFileLength() {
         return fileLength;
     }
 
-    public void setFileLength(int fileLength) {
+    public void setFileLength(long fileLength) {
         this.fileLength = fileLength;
     }
 
@@ -72,5 +82,21 @@ public class FileInfo implements Serializable {
 
     public void setCategory(FileCategory category) {
         this.category = category;
+    }
+
+    public Date getInsertTime() {
+        return insertTime;
+    }
+
+    public void setInsertTime(Date insertTime) {
+        this.insertTime = insertTime;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

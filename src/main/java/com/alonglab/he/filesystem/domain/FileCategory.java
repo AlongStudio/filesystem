@@ -2,10 +2,11 @@ package com.alonglab.he.filesystem.domain;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.Date;
 
 @Entity
 @Table(name = "t_fs_file_category")
-public class FileCategory implements Serializable{
+public class FileCategory implements Serializable {
     @Id
     @GeneratedValue
     @Column(name = "id")
@@ -16,6 +17,13 @@ public class FileCategory implements Serializable{
     private String code;
     @Column(name = "description")
     private String description;
+    @Column(name = "insert_time")
+    private Date insertTime;
+
+    @PrePersist
+    protected void prePersist() {
+        insertTime = new Date();
+    }
 
     public Long getId() {
         return id;
@@ -47,5 +55,13 @@ public class FileCategory implements Serializable{
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Date getInsertTime() {
+        return insertTime;
+    }
+
+    public void setInsertTime(Date insertTime) {
+        this.insertTime = insertTime;
     }
 }
