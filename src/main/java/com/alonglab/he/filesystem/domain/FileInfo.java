@@ -1,11 +1,29 @@
 package com.alonglab.he.filesystem.domain;
 
-public class FileInfo {
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
+
+import javax.persistence.*;
+import java.io.Serializable;
+
+@Entity
+@Table(name = "t_fs_file_info")
+public class FileInfo implements Serializable {
+    @Id
+    @GeneratedValue
+    @Column(name = "id")
     private long id;
+    @Column(name = "file_name")
     private String fileName;
+    @Column(name = "full_path")
     private String fullPath;
-    private long fileLength;
+    @Column(name = "file_length")
+    private int fileLength;
+    @Column(name = "md5")
     private String md5;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "category_id", referencedColumnName = "id")
+    @Fetch(value = FetchMode.SELECT)
     private FileCategory category;
 
     public long getId() {
@@ -32,11 +50,11 @@ public class FileInfo {
         this.fullPath = fullPath;
     }
 
-    public long getFileLength() {
+    public int getFileLength() {
         return fileLength;
     }
 
-    public void setFileLength(long fileLength) {
+    public void setFileLength(int fileLength) {
         this.fileLength = fileLength;
     }
 
