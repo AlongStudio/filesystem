@@ -19,6 +19,8 @@ public class FileCategory implements Serializable {
     private String description;
     @Column(name = "insert_time")
     private Date insertTime;
+    @Column(name = "file_num")
+    private int fileNum;
 
     @PrePersist
     protected void prePersist() {
@@ -63,5 +65,13 @@ public class FileCategory implements Serializable {
 
     public void setInsertTime(Date insertTime) {
         this.insertTime = insertTime;
+    }
+
+    public int getFileNum() {
+        return fileNum;
+    }
+
+    public void setFileNum(int fileNum) {
+        this.fileNum = fileNum;
     }
 }

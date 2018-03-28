@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Date;
 
 @Service
 public class FileProcessorImpl implements FileProcessor {
@@ -43,13 +44,16 @@ public class FileProcessorImpl implements FileProcessor {
         info.setFileLength(size);
         info.setFileName(file.getName());
         info.setFullPath(file.getAbsolutePath());
+        long lastModified0 = file.lastModified();
+        info.setLastModified(new Date(lastModified0));
 
         try {
             logger.info(file.getAbsolutePath());
             String md5 = MD5Util.getMD5(size, new FileInputStream(file));
             info.setMd5(md5);
-            info.setStatus("NewIndex");
+            info.setStatus(FileInfo.FILE_STATUS_NEWINDEX);
             fileInfoRepository.save(info);
+            category.setFileNum(category.getFileNum() + 1);
         } catch (IOException e) {
             e.printStackTrace();
             logger.error("file process error:", e);

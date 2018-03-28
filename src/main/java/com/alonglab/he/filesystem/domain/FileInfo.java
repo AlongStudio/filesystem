@@ -10,6 +10,12 @@ import java.util.Date;
 @Entity
 @Table(name = "t_fs_file_info")
 public class FileInfo implements Serializable {
+
+    public static final int FILE_STATUS_NEWINDEX = 1;
+    public static final int FILE_STATUS_DUPLICATE = 2;
+    public static final int FILE_STATUS_EXACT_DUPLICATE = 3;
+    public static final int FILE_STATUS_DELETED = 4;
+
     @Id
     @GeneratedValue
     @Column(name = "id")
@@ -20,16 +26,20 @@ public class FileInfo implements Serializable {
     private String fullPath;
     @Column(name = "file_length")
     private long fileLength;
+    @Column(name = "last_modified")
+    private Date lastModified;
     @Column(name = "md5")
     private String md5;
     @Column(name = "insert_time")
     private Date insertTime;
     @Column(name = "status")
-    private String status;
+    private int status;
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id", referencedColumnName = "id")
     @Fetch(value = FetchMode.SELECT)
     private FileCategory category;
+    @Column(name = "comments")
+    private String comments;
 
     @PrePersist
     protected void prePersist() {
@@ -92,11 +102,27 @@ public class FileInfo implements Serializable {
         this.insertTime = insertTime;
     }
 
-    public String getStatus() {
+    public int getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(int status) {
         this.status = status;
+    }
+
+    public String getComments() {
+        return comments;
+    }
+
+    public void setComments(String comments) {
+        this.comments = comments;
+    }
+
+    public Date getLastModified() {
+        return lastModified;
+    }
+
+    public void setLastModified(Date lastModified) {
+        this.lastModified = lastModified;
     }
 }

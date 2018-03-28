@@ -2,10 +2,12 @@ package com.alonglab.he.filesystem.restful;
 
 import com.alonglab.he.filesystem.domain.FileCategory;
 import com.alonglab.he.filesystem.domain.FileInfo;
+import com.alonglab.he.filesystem.dto.CheckInput;
 import com.alonglab.he.filesystem.dto.IndexInput;
 import com.alonglab.he.filesystem.local.RecordFilesProcessor;
 import com.alonglab.he.filesystem.repository.FileCategoryRepository;
 import com.alonglab.he.filesystem.repository.FileInfoRepository;
+import com.alonglab.he.filesystem.service.CategoryProcessor;
 import com.alonglab.he.filesystem.service.FileProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -27,6 +29,8 @@ public class FileResource {
     private FileInfoRepository fileInfoRepository;
     @Autowired
     private FileProcessor fileProcessor;
+    @Autowired
+    private CategoryProcessor categoryProcessor;
 
     @RequestMapping(value = "/test0", method = RequestMethod.GET)
     @Transactional
@@ -66,7 +70,16 @@ public class FileResource {
         String path = input.getIndexPath();
         File folder = new File(path);
         fileProcessor.handleFile(folder, fileCategory);
-
+        fileCategoryRepository.save(fileCategory);
         return "" + fileCategory.getId();
+    }
+
+    @RequestMapping(value = "/check/duplicate", method = RequestMethod.POST,
+            consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)
+    @Transactional
+    public @ResponseBody
+    String checkCategoryDuplicate(@RequestBody CheckInput input) {
+        categoryProcessor.checkCategoryFileDuplicate(input.getOldCategoryId(), input.getNewCategoryId());
+        return "Done";
     }
 }
