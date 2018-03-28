@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface FileInfoRepository extends CrudRepository<FileInfo, Long> {
     List<FileInfo> findAllByCategory_Id(long categoryId);
+
+    List<FileInfo> findAllByCategory_IdAndStatus(long categoryId, int status);
 }

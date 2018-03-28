@@ -4,12 +4,14 @@ import com.alonglab.he.filesystem.domain.FileInfo;
 import com.alonglab.he.filesystem.repository.FileCategoryRepository;
 import com.alonglab.he.filesystem.repository.FileInfoRepository;
 import com.alonglab.he.filesystem.service.CategoryProcessor;
+import com.alonglab.he.filesystem.util.FileUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,5 +53,24 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
 
     private String generateKey(FileInfo fileInfo) {
         return fileInfo.getFileName() + "#" + fileInfo.getFileLength() + "#" + fileInfo.getMd5();
+    }
+
+    @Override
+    public void cleanCategory(long categoryId) {
+        List<FileInfo> fileInfoList = fileInfoRepository.findAllByCategory_IdAndStatus(categoryId, FileInfo.FILE_STATUS_EXACT_DUPLICATE);
+        fileInfoList.forEach(fileInfo -> {
+            logger.info("deal with {},size = {}", fileInfo.getFullPath(), fileInfo.getFileLength());
+            File fileToBeDeleted = new File(fileInfo.getFullPath());
+            File fileSame = new File(fileInfo.getComments());
+            boolean isSame = FileUtil.checkTotallySame(fileToBeDeleted, fileSame);
+            if (isSame) {
+                boolean deleted = fileToBeDeleted.delete();
+                if (deleted) {
+                    fileInfo.setStatus(FileInfo.FILE_STATUS_DELETED);
+                    fileInfoRepository.save(fileInfo);
+                    logger.info(fileInfo.getFileName() + " deleted!");
+                }
+            }
+        });
     }
 }
