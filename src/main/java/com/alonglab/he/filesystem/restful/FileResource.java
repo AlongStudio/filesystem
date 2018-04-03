@@ -61,6 +61,7 @@ public class FileResource {
         FileCategory fileCategory = new FileCategory();
         fileCategory.setCode(input.getCode());
         fileCategory.setName(input.getName());
+        fileCategory.setFolderPath(input.getIndexPath());
         fileCategory.setDescription(input.getDescription());
         fileCategoryRepository.save(fileCategory);
 

@@ -17,10 +17,14 @@ public class FileCategory implements Serializable {
     private String code;
     @Column(name = "description")
     private String description;
+    @Column(name = "folder_path")
+    private String folderPath;
     @Column(name = "insert_time")
     private Date insertTime;
     @Column(name = "file_num")
     private int fileNum;
+    @Column(name = "folder_size")
+    private long folderSize;
 
     @PrePersist
     protected void prePersist() {
@@ -73,5 +77,21 @@ public class FileCategory implements Serializable {
 
     public void setFileNum(int fileNum) {
         this.fileNum = fileNum;
+    }
+
+    public String getFolderPath() {
+        return folderPath;
+    }
+
+    public void setFolderPath(String folderPath) {
+        this.folderPath = folderPath;
+    }
+
+    public long getFolderSize() {
+        return folderSize;
+    }
+
+    public void setFolderSize(long folderSize) {
+        this.folderSize = folderSize;
     }
 }

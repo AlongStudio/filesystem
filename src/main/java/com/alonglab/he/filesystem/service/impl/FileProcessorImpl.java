@@ -54,6 +54,7 @@ public class FileProcessorImpl implements FileProcessor {
             info.setStatus(FileInfo.FILE_STATUS_NEWINDEX);
             fileInfoRepository.save(info);
             category.setFileNum(category.getFileNum() + 1);
+            category.setFolderSize(category.getFolderSize()+info.getFileLength());
         } catch (IOException e) {
             e.printStackTrace();
             logger.error("file process error:", e);
