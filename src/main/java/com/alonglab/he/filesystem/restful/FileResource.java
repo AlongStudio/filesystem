@@ -65,8 +65,7 @@ public class FileResource {
         fileCategory.setDescription(input.getDescription());
         fileCategoryRepository.save(fileCategory);
 
-        String path = input.getIndexPath();
-        File folder = new File(path);
+        File folder = new File(fileCategory.getFolderPath());
         fileProcessor.handleFile(folder, fileCategory);
         fileCategoryRepository.save(fileCategory);
         return "" + fileCategory.getId();
@@ -87,5 +86,13 @@ public class FileResource {
     String deleteCategory(@PathVariable("categoryId") long categoryId) {
         categoryProcessor.cleanCategory(categoryId);
         return "Done";
+    }
+
+    @RequestMapping(value = "/refresh/{categoryId}", method = RequestMethod.PUT)
+    @Transactional
+    public @ResponseBody
+    String refreshCategory(@PathVariable("categoryId") long categoryId) {
+        String result = categoryProcessor.refreshCategory(categoryId);
+        return result;
     }
 }

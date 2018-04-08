@@ -5,5 +5,6 @@ import com.alonglab.he.filesystem.domain.FileCategory;
 import java.io.File;
 
 public interface FileProcessor {
-    public void handleFile(File file, FileCategory category);
+    void handleFile(File file, FileCategory category);
+    void rehandleFile(File file, FileCategory category);
 }

@@ -15,6 +15,9 @@ public class FileInfo implements Serializable {
     public static final int FILE_STATUS_DUPLICATE = 2;
     public static final int FILE_STATUS_EXACT_DUPLICATE = 3;
     public static final int FILE_STATUS_DELETED = 4;
+    public static final int FILE_STATUS_ERROR = 5;
+    public static final int FILE_STATUS_MISSING = 6;
+    public static final int FILE_STATUS_UPDATED = 7;
 
     @Id
     @GeneratedValue

@@ -1,9 +1,11 @@
 package com.alonglab.he.filesystem.service.impl;
 
+import com.alonglab.he.filesystem.domain.FileCategory;
 import com.alonglab.he.filesystem.domain.FileInfo;
 import com.alonglab.he.filesystem.repository.FileCategoryRepository;
 import com.alonglab.he.filesystem.repository.FileInfoRepository;
 import com.alonglab.he.filesystem.service.CategoryProcessor;
+import com.alonglab.he.filesystem.service.FileProcessor;
 import com.alonglab.he.filesystem.util.FileUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,15 +23,26 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
     @Autowired
     private FileCategoryRepository fileCategoryRepository;
     @Autowired
+    private FileProcessor fileProcessor;
+    @Autowired
     private FileInfoRepository fileInfoRepository;
     private static final Logger logger = LoggerFactory.getLogger(FileProcessorImpl.class);
 
+    /**
+     * 比较两个Category并标记精确重复的FileInfo
+     *
+     * @param oldCategoryId
+     * @param newCategoryId
+     */
     @Override
     public void checkCategoryFileDuplicate(long oldCategoryId, long newCategoryId) {
         Map<String, FileInfo> oldFiles = loadOldFiles(oldCategoryId);
         List<FileInfo> newFileList = fileInfoRepository.findAllByCategory_Id(newCategoryId);
 
         for (FileInfo fileInfo : newFileList) {
+            if(fileInfo.getStatus()==FileInfo.FILE_STATUS_MISSING){
+                continue;
+            }
             String key = generateKey(fileInfo);
             if (oldFiles.containsKey(key)) {
                 fileInfo.setStatus(FileInfo.FILE_STATUS_EXACT_DUPLICATE);
@@ -39,6 +52,12 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
         }
     }
 
+    /**
+     * 将FileInfoList转换为map用于比较
+     *
+     * @param oldCategoryId
+     * @return
+     */
     private Map<String, FileInfo> loadOldFiles(long oldCategoryId) {
         List<FileInfo> oldFileList = fileInfoRepository.findAllByCategory_Id(oldCategoryId);
         logger.debug("list size = " + oldFileList.size());
@@ -55,6 +74,9 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
         return fileInfo.getFileName() + "#" + fileInfo.getFileLength() + "#" + fileInfo.getMd5();
     }
 
+    /**
+     * 删除完全重复的文件(name\length\md5均重复)并将FileInfo更新为已删除。不清理FileInfo
+     */
     @Override
     public void cleanCategory(long categoryId) {
         List<FileInfo> fileInfoList = fileInfoRepository.findAllByCategory_IdAndStatus(categoryId, FileInfo.FILE_STATUS_EXACT_DUPLICATE);
@@ -72,5 +94,97 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
                 }
             }
         });
+    }
+
+    /**
+     * 刷新category。仅更新FileInfo和FileCategory至真实状态，不处理真实文件
+     */
+    @Override
+    public String refreshCategory(long categoryId) {
+        FileCategory category = fileCategoryRepository.findOne(categoryId);
+        Map<String, Integer> result = new HashMap<>();
+        checkDeletedFileInfo(category, result);
+        checkUnDeletedFileInfo(category, result);
+        reindexCategory(category, result);
+
+        fileCategoryRepository.save(category);
+        return extractRefreshResult(result);
+    }
+
+    /**
+     * 检查Status为Deleted的FileInfo，确实已删除的则删掉当前FileInfo
+     *
+     * @param category
+     * @param result
+     */
+    private void checkDeletedFileInfo(FileCategory category, Map<String, Integer> result) {
+        List<FileInfo> deletedList = fileInfoRepository.findAllByCategory_IdAndStatus(category.getId(), FileInfo.FILE_STATUS_DELETED);
+        int listSize = deletedList.size();
+        int errorNumber = 0;
+        int deleteNumber = 0;
+        for (FileInfo deletedFile : deletedList) {
+            File f = new File(deletedFile.getFullPath());
+            if (f.exists()) {
+                deletedFile.setStatus(FileInfo.FILE_STATUS_ERROR);
+                errorNumber++;
+                fileInfoRepository.save(deletedFile);
+            } else {
+                category.setFileNum(category.getFileNum() - 1);
+                category.setFolderSize(category.getFolderSize() - deletedFile.getFileLength());
+                deleteNumber++;
+                fileInfoRepository.delete(deletedFile.getId());
+            }
+        }
+
+        result.put("ShouldDeletedSize", listSize);
+        result.put("DeletedErrorNumber", errorNumber);
+        result.put("RealDeleteNumber", deleteNumber);
+    }
+
+    /**
+     * 检查所有Status不是删除的FileInfo，对应的文件应存在，不存在的标记为Missing,然后可以手动review后调用recheckMissing方法删除记录（TODO）
+     *
+     * @param category
+     * @param result
+     */
+    private void checkUnDeletedFileInfo(FileCategory category, Map<String, Integer> result) {
+        List<FileInfo> allFileInfoList = fileInfoRepository.findAllByCategory_Id(category.getId());
+        int listSize = allFileInfoList.size();
+        int missingNum = 0;
+//        int updated = 0;
+        for (FileInfo fileInfo : allFileInfoList) {
+            if (fileInfo.getStatus() == FileInfo.FILE_STATUS_DELETED) {
+                continue;
+            }
+            File f = new File(fileInfo.getFullPath());
+            if (!f.exists()) {
+                missingNum++;
+                fileInfo.setStatus(FileInfo.FILE_STATUS_MISSING);
+                fileInfoRepository.save(fileInfo);
+            } else {
+                //TODO 更新文件信息，暂时不需要。
+            }
+        }
+        result.put("CheckMissingFileListSize", listSize);
+        result.put("CheckMissingResult", missingNum);
+    }
+
+    private void reindexCategory(FileCategory category, Map<String, Integer> result) {
+        File folder = new File(category.getFolderPath());
+        int fileNum1 = category.getFileNum();
+        fileProcessor.rehandleFile(folder, category);
+        int fileNum2 = category.getFileNum();
+        result.put("NewIndexNumber", fileNum2 - fileNum1);
+    }
+
+    private String extractRefreshResult(Map<String, Integer> result) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("应被删除数：" + result.get("ShouldDeletedSize") + "\n");
+        sb.append("实际删除数：" + result.get("RealDeleteNumber") + "\n");
+        sb.append("删除出错数：" + result.get("DeletedErrorNumber") + "\n");
+        sb.append("检查文件是否存在数：" + result.get("CheckMissingFileListSize") + "\n");
+        sb.append("实际文件已不存在数：" + result.get("CheckMissingResult") + "\n");
+        sb.append("新索引文件数：" + result.get("NewIndexNumber") + "\n");
+        return sb.toString();
     }
 }

@@ -62,6 +62,7 @@ public class MD5Util {
             input = new byte[size0];
             inputStream.read(input, 0, size0);
         }
+        inputStream.close();
         String md5str = getMD5(input);
         return md5str;
     }

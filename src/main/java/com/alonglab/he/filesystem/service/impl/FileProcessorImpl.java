@@ -23,6 +23,7 @@ public class FileProcessorImpl implements FileProcessor {
     @Autowired
     private FileInfoRepository fileInfoRepository;
 
+    @Override
     public void handleFile(File file, FileCategory category) {
         if (file.isDirectory()) {
             File[] files = file.listFiles();
@@ -31,6 +32,25 @@ public class FileProcessorImpl implements FileProcessor {
             }
         } else if (file.isFile()) {
             fileProcess(file, category);
+        } else {
+            logger.error("++ERROR FILE:" + file.getAbsolutePath() + "+++++");
+        }
+
+    }
+
+    @Override
+    public void rehandleFile(File file, FileCategory category) {
+        if (file.isDirectory()) {
+            File[] files = file.listFiles();
+            for (File f : files) {
+                rehandleFile(f, category);
+            }
+        } else if (file.isFile()) {
+            String fullPath = file.getAbsolutePath();
+            FileInfo fileInfo = fileInfoRepository.findByCategoryAndFullPath(category, fullPath);
+            if (fileInfo == null) {
+                fileProcess(file, category);
+            }
         } else {
             logger.error("++ERROR FILE:" + file.getAbsolutePath() + "+++++");
         }
@@ -54,7 +74,7 @@ public class FileProcessorImpl implements FileProcessor {
             info.setStatus(FileInfo.FILE_STATUS_NEWINDEX);
             fileInfoRepository.save(info);
             category.setFileNum(category.getFileNum() + 1);
-            category.setFolderSize(category.getFolderSize()+info.getFileLength());
+            category.setFolderSize(category.getFolderSize() + info.getFileLength());
         } catch (IOException e) {
             e.printStackTrace();
             logger.error("file process error:", e);
