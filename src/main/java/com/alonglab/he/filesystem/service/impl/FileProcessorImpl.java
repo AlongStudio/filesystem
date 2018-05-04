@@ -14,6 +14,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Date;
+import java.util.Map;
 
 @Service
 public class FileProcessorImpl implements FileProcessor {
@@ -39,17 +40,21 @@ public class FileProcessorImpl implements FileProcessor {
     }
 
     @Override
-    public void rehandleFile(File file, FileCategory category) {
+    public void rehandleFile(File file, FileCategory category, Map<String, FileInfo> existedFileInfo) {
         if (file.isDirectory()) {
             File[] files = file.listFiles();
             for (File f : files) {
-                rehandleFile(f, category);
+                rehandleFile(f, category, existedFileInfo);
             }
         } else if (file.isFile()) {
             String fullPath = file.getAbsolutePath();
-            FileInfo fileInfo = fileInfoRepository.findByCategoryAndFullPath(category, fullPath);
+//            FileInfo fileInfo = fileInfoRepository.findByCategoryAndFullPath(category, fullPath);
+            FileInfo fileInfo = existedFileInfo.get(fullPath);
             if (fileInfo == null) {
-                fileProcess(file, category);
+                FileInfo newFileInfo = fileProcess(file, category);
+                if(newFileInfo != null){
+                    existedFileInfo.put(fullPath, newFileInfo);
+                }
             }
         } else {
             logger.error("++ERROR FILE:" + file.getAbsolutePath() + "+++++");
@@ -57,7 +62,7 @@ public class FileProcessorImpl implements FileProcessor {
 
     }
 
-    private void fileProcess(File file, FileCategory category) {
+    private FileInfo fileProcess(File file, FileCategory category) {
         FileInfo info = new FileInfo();
         info.setCategory(category);
         long size = file.length();
@@ -75,9 +80,11 @@ public class FileProcessorImpl implements FileProcessor {
             fileInfoRepository.save(info);
             category.setFileNum(category.getFileNum() + 1);
             category.setFolderSize(category.getFolderSize() + info.getFileLength());
+            return info;
         } catch (IOException e) {
             e.printStackTrace();
             logger.error("file process error:", e);
+            return null;
         }
     }
 }

@@ -172,7 +172,13 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
     private void reindexCategory(FileCategory category, Map<String, Integer> result) {
         File folder = new File(category.getFolderPath());
         int fileNum1 = category.getFileNum();
-        fileProcessor.rehandleFile(folder, category);
+        List<FileInfo> oldFileList = fileInfoRepository.findAllByCategory_Id(category.getId());
+        logger.debug("list size = " + oldFileList.size());
+        Map<String, FileInfo> existedFileInfo = new HashMap<>();
+        oldFileList.forEach(fileInfo ->
+                existedFileInfo.put(fileInfo.getFullPath(), fileInfo)
+        );
+        fileProcessor.rehandleFile(folder, category, existedFileInfo);
         int fileNum2 = category.getFileNum();
         result.put("NewIndexNumber", fileNum2 - fileNum1);
     }
