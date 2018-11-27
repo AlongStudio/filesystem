@@ -95,4 +95,12 @@ public class FileResource {
         String result = categoryProcessor.refreshCategory(categoryId);
         return result;
     }
+
+    @RequestMapping(value = "/check/current/duplicate/{categoryId}", method = RequestMethod.PUT)
+    @Transactional
+    public @ResponseBody
+    String checkCurrentCategoryFileDuplicated(@PathVariable("categoryId") long categoryId) {
+        String result = categoryProcessor.checkCurrentCategoryFileDuplicated(categoryId);
+        return result;
+    }
 }

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,10 +41,10 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
         List<FileInfo> newFileList = fileInfoRepository.findAllByCategory_Id(newCategoryId);
 
         for (FileInfo fileInfo : newFileList) {
-            if(fileInfo.getStatus()==FileInfo.FILE_STATUS_MISSING){
+            if (fileInfo.getStatus() == FileInfo.FILE_STATUS_MISSING) {
                 continue;
             }
-            String key = generateKey(fileInfo);
+            String key = generateExactDuplicateKey(fileInfo);
             if (oldFiles.containsKey(key)) {
                 fileInfo.setStatus(FileInfo.FILE_STATUS_EXACT_DUPLICATE);
                 fileInfo.setComments(oldFiles.get(key).getFullPath());
@@ -63,14 +64,14 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
         logger.debug("list size = " + oldFileList.size());
         Map<String, FileInfo> oldFiles = new HashMap<>();
         oldFileList.forEach(fileInfo ->
-                oldFiles.put(generateKey(fileInfo), fileInfo)
+                oldFiles.put(generateExactDuplicateKey(fileInfo), fileInfo)
         );
         logger.debug("map size = " + oldFiles.size());
-        Assert.isTrue(oldFileList.size() == oldFiles.size(), "old file category should have no duplicated file!");
+        //Assert.isTrue(oldFileList.size() == oldFiles.size(), "old file category should have no duplicated file!");
         return oldFiles;
     }
 
-    private String generateKey(FileInfo fileInfo) {
+    private String generateExactDuplicateKey(FileInfo fileInfo) {
         return fileInfo.getFileName() + "#" + fileInfo.getFileLength() + "#" + fileInfo.getMd5();
     }
 
@@ -192,5 +193,50 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
         sb.append("实际文件已不存在数：" + result.get("CheckMissingResult") + "\n");
         sb.append("新索引文件数：" + result.get("NewIndexNumber") + "\n");
         return sb.toString();
+    }
+
+    /**
+     * 检查同一个category中的文件重复信息
+     * 只根据本category中的文件信息进行比较处理，不处理本category中文件与其他category文件相同或相似的问题
+     * 由于文件大多按照日期或活动归类到不同的文件夹进行存储，所以本功能只处理同文件夹下的文件查重，跨文件夹的不处理。
+     * 典型的情况是下面这种同文件夹下的重复，除了文件名不同，其他都相同：
+     * /Users/victor/Documents/照片/我的照片/2015年11月/2015-11-21 175756.jpg
+     * /Users/victor/Documents/照片/我的照片/2015年11月/2015-11-21 175756(1).jpg
+     *
+     * @param categoryId
+     */
+    @Override
+    public String checkCurrentCategoryFileDuplicated(long categoryId) {
+        List<FileInfo> fileInfoList = fileInfoRepository.findAllByCategory_Id(categoryId);
+        Map<String, List<FileInfo>> allFiles = new HashMap<>(); //<fileParentPath,fileInfoList>
+        //首先根据目录进行fileInfo分组
+        for (FileInfo fileInfo : fileInfoList) {
+            if (fileInfo.getStatus() != FileInfo.FILE_STATUS_NEWINDEX) {
+                //其他状态不处理，降低本功能的影响，只处理最典型的情况
+                continue;
+            }
+            File f = new File(fileInfo.getFullPath());
+            if (!f.exists()) {
+                continue;
+            }
+            String parent = f.getParent();
+            List<FileInfo> infoList = allFiles.get(parent);
+            if (infoList == null) {
+                infoList = new ArrayList<>();
+                allFiles.put(parent, infoList);
+            }
+            infoList.add(fileInfo);
+        }
+        return "";
+    }
+
+    /**
+     * fileName很可能相似、但不同
+     *
+     * @param fileInfo
+     * @return
+     */
+    private String generateDuplicateKey(FileInfo fileInfo) {
+        return fileInfo.getFileLength() + "#" + fileInfo.getMd5();
     }
 }
