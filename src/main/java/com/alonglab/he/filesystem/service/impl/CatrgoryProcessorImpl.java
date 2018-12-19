@@ -81,20 +81,34 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
     @Override
     public void cleanCategory(long categoryId) {
         List<FileInfo> fileInfoList = fileInfoRepository.findAllByCategory_IdAndStatus(categoryId, FileInfo.FILE_STATUS_EXACT_DUPLICATE);
-        fileInfoList.forEach(fileInfo -> {
-            logger.info("deal with {},size = {}", fileInfo.getFullPath(), fileInfo.getFileLength());
-            File fileToBeDeleted = new File(fileInfo.getFullPath());
-            File fileSame = new File(fileInfo.getComments());
-            boolean isSame = FileUtil.checkTotallySame(fileToBeDeleted, fileSame);
-            if (isSame) {
-                boolean deleted = fileToBeDeleted.delete();
-                if (deleted) {
-                    fileInfo.setStatus(FileInfo.FILE_STATUS_DELETED);
-                    fileInfoRepository.save(fileInfo);
-                    logger.info(fileInfo.getFileName() + " deleted!");
-                }
+        fileInfoList.forEach(fileInfo -> deleteFile(fileInfo));
+        fileInfoRepository.save(fileInfoList);
+
+        fileInfoList = fileInfoRepository.findAllByCategory_IdAndStatus(categoryId, FileInfo.FILE_STATUS_DUPLICATE);
+        fileInfoList.forEach(fileInfo -> deleteFile(fileInfo));
+        fileInfoRepository.save(fileInfoList);
+    }
+
+    private void deleteFile(FileInfo fileInfo) {
+        logger.info("deal with {},size = {}", fileInfo.getFullPath(), fileInfo.getFileLength());
+        File fileToBeDeleted = new File(fileInfo.getFullPath());
+        File fileSame;
+        if (fileInfo.getStatus() == FileInfo.FILE_STATUS_EXACT_DUPLICATE) {
+            fileSame = new File(fileInfo.getComments());
+        } else if (fileInfo.getStatus() == FileInfo.FILE_STATUS_DUPLICATE) {
+            FileInfo originalFile = fileInfoRepository.findOne(fileInfo.getDuplicatedWithId());
+            fileSame = new File(originalFile.getFullPath());
+        }else{
+            throw new RuntimeException("Wrong Status");
+        }
+        boolean isSame = FileUtil.checkTotallySame(fileToBeDeleted, fileSame);
+        if (isSame) {
+            boolean deleted = fileToBeDeleted.delete();
+            if (deleted) {
+                fileInfo.setStatus(FileInfo.FILE_STATUS_DELETED);
+                logger.info(fileInfo.getFileName() + " deleted!");
             }
-        });
+        }
     }
 
     /**
@@ -202,19 +216,49 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
      * 典型的情况是下面这种同文件夹下的重复，除了文件名不同，其他都相同：
      * /Users/victor/Documents/照片/我的照片/2015年11月/2015-11-21 175756.jpg
      * /Users/victor/Documents/照片/我的照片/2015年11月/2015-11-21 175756(1).jpg
+     * /Users/victor/Documents/照片/我的照片/2015年11月/IMG_4567.jpg
+     * /Users/victor/Documents/照片/我的照片/2015年11月/DSC00019.jpg
      *
      * @param categoryId
      */
     @Override
     public String checkCurrentCategoryFileDuplicated(long categoryId) {
         List<FileInfo> fileInfoList = fileInfoRepository.findAllByCategory_Id(categoryId);
+        Map<String, List<FileInfo>> allFiles = groupFileListByPath(fileInfoList);
+        allFiles.forEach((p, list) -> {
+            list.forEach(f -> {
+                if (f.getStatus() == FileInfo.FILE_STATUS_DUPLICATE) {
+                    //重置status。因为他们有可能变成主文件而被保留
+                    f.setStatus(FileInfo.FILE_STATUS_NEWINDEX);
+                    f.setDuplicatedWithId(null);
+                }
+            });
+            if (p.indexOf("特定") == -1) {
+                Map<String, List<FileInfo>> keyFileList = groupFileInfoListByDuplicateKey(list);
+                keyFileList.forEach((key, l) -> {
+                    if (key.startsWith("926404")) {
+                        System.out.println();
+                    }
+                    if (l.size() > 1) {
+                        dealDuplicateFiles(l);
+                    }
+                });
+            }
+            fileInfoRepository.save(list);//按目录批量保存FileInfo
+        });
+        return "DONE";
+    }
+
+    /**
+     * 将同一个category的file按他们的父路径进行分组，即归属在同一个目录的文件一组
+     *
+     * @param fileInfoList
+     * @return
+     */
+    private Map<String, List<FileInfo>> groupFileListByPath(List<FileInfo> fileInfoList) {
         Map<String, List<FileInfo>> allFiles = new HashMap<>(); //<fileParentPath,fileInfoList>
         //首先根据目录进行fileInfo分组
         for (FileInfo fileInfo : fileInfoList) {
-            if (fileInfo.getStatus() != FileInfo.FILE_STATUS_NEWINDEX) {
-                //其他状态不处理，降低本功能的影响，只处理最典型的情况
-                continue;
-            }
             File f = new File(fileInfo.getFullPath());
             if (!f.exists()) {
                 continue;
@@ -227,7 +271,72 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
             }
             infoList.add(fileInfo);
         }
-        return "";
+        return allFiles;
+    }
+
+    /**
+     * 将同一个目录下的文件按照他们的duplicate key进行分组
+     *
+     * @param list
+     * @return
+     */
+    private Map<String, List<FileInfo>> groupFileInfoListByDuplicateKey(List<FileInfo> list) {
+        Map<String, List<FileInfo>> keyFiles = new HashMap<>();
+        for (FileInfo fileInfo : list) {
+            String key = generateDuplicateKey(fileInfo);
+            List<FileInfo> infoList = keyFiles.get(key);
+            if (infoList == null) {
+                infoList = new ArrayList<>();
+                keyFiles.put(key, infoList);
+            }
+            infoList.add(fileInfo);
+        }
+        return keyFiles;
+    }
+
+    private void dealDuplicateFiles(List<FileInfo> list) {
+        FileInfo bestNameFileInfo = getBestNameFileInfo(list);
+        list.forEach(f -> {
+            if (f != bestNameFileInfo) {
+                f.setStatus(FileInfo.FILE_STATUS_DUPLICATE);
+                f.setDuplicatedWithId(bestNameFileInfo.getId());
+            }
+        });
+    }
+
+
+    /**
+     * 返回最佳名字。
+     * 2015-11-21 175756.jpg
+     * 2015-11-21 175756(1).jpg
+     * IMG_4567.jpg
+     * DSC00019.jpg
+     *
+     * @param files
+     * @return
+     */
+    private static FileInfo getBestNameFileInfo(List<FileInfo> files) {
+        if (files.size() == 0) {
+            throw new RuntimeException("Wrong name list");
+        }
+        FileInfo bestFileInfo = null;
+        int bestScore = 0;
+        for (FileInfo fileInfo : files) {
+            int score = FileUtil.getNameScore(fileInfo.getFileName());
+            if (score > bestScore) {
+                bestScore = score;
+                bestFileInfo = fileInfo;
+            } else if (score == bestScore) {
+                logger.warn("score={},fileName={},oldBestFileName={}", score, fileInfo.getFullPath(), bestFileInfo.getFullPath());
+                if (fileInfo.getLastModified().getTime() < bestFileInfo.getLastModified().getTime()) {
+                    bestFileInfo = fileInfo;
+                }
+            }
+        }
+        if (bestFileInfo == null) {
+            throw new RuntimeException("Something wrong!!");
+        }
+        return bestFileInfo;
     }
 
     /**

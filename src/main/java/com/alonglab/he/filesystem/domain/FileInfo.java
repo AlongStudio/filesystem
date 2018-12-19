@@ -22,7 +22,7 @@ public class FileInfo implements Serializable {
     @Id
     @GeneratedValue
     @Column(name = "id")
-    private long id;
+    private Long id;
     @Column(name = "file_name")
     private String fileName;
     @Column(name = "full_path")
@@ -43,18 +43,28 @@ public class FileInfo implements Serializable {
     private FileCategory category;
     @Column(name = "comments")
     private String comments;
+    @Column(name = "duplicated_with_id")
+    private Long duplicatedWithId;
 
     @PrePersist
     protected void prePersist() {
         insertTime = new Date();
     }
 
-    public long getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(long id) {
+    public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getDuplicatedWithId() {
+        return duplicatedWithId;
+    }
+
+    public void setDuplicatedWithId(Long duplicatedWithId) {
+        this.duplicatedWithId = duplicatedWithId;
     }
 
     public String getFileName() {
@@ -128,4 +138,5 @@ public class FileInfo implements Serializable {
     public void setLastModified(Date lastModified) {
         this.lastModified = lastModified;
     }
+
 }
