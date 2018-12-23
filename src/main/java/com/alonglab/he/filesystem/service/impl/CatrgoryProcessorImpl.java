@@ -236,9 +236,6 @@ public class CatrgoryProcessorImpl implements CategoryProcessor {
             if (p.indexOf("特定") == -1) {
                 Map<String, List<FileInfo>> keyFileList = groupFileInfoListByDuplicateKey(list);
                 keyFileList.forEach((key, l) -> {
-                    if (key.startsWith("926404")) {
-                        System.out.println();
-                    }
                     if (l.size() > 1) {
                         dealDuplicateFiles(l);
                     }
